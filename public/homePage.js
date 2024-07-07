@@ -1,7 +1,7 @@
 const logoutButton = new LogoutButton();
 logoutButton.action = () => ApiConnector.logout(response => {
     if(response.success) {
-        location.reload()
+        location.reload();
     }
 });
 
@@ -12,15 +12,11 @@ ApiConnector.current(response => {
 });
 
 const ratesBoard = new RatesBoard();
-//let nowTime = new Date();
 function updateRatesBoard() {
     ApiConnector.getStocks(response => {
         if(response.success) {
             ratesBoard.clearTable();
             ratesBoard.fillTable(response.data);
-            // let newTime = new Date();
-            // console.log("Успешно обновлено", newTime - nowTime);
-            // nowTime = new Date();
         };
     });
 }
@@ -29,50 +25,54 @@ setInterval(updateRatesBoard, 60000);
 
 const moneyManager = new MoneyManager();
 
-function moneyManagerChecker(data, message) {
+function updateMoneyManager(data, message) {
     if(data.success) {
         ProfileWidget.showProfile(data.data);
-        moneyManager.setMessage(true, message);
     } else {
-        moneyManager.setMessage(false, data.error);
+        message = data.error
     }
+    moneyManager.setMessage(data.success, message);
 }
 
 moneyManager.addMoneyCallback = data => 
     ApiConnector.addMoney({currency: data.currency, amount: data.amount}, response => 
-    moneyManagerChecker(response, `Успешное пополнение кошелька на сумму ${data.amount} ${data.currency}`));
+        updateMoneyManager(response, `Успешное пополнение кошелька на сумму ${data.amount} ${data.currency}`));
 
 moneyManager.conversionMoneyCallback = data => 
-    ApiConnector.convertMoney({fromCurrency: data.fromCurrency, targetCurrency: data.targetCurrency, fromAmount: data.fromAmount}, response => 
-    moneyManagerChecker(response, `Конвертация из ${data.fromCurrency} в ${data.targetCurrency} выполнена!`));
+    ApiConnector.convertMoney({fromCurrency: data.fromCurrency, targetCurrency: data.targetCurrency, fromAmount: data.fromAmount}, response =>
+        updateMoneyManager(response, `Конвертация из ${data.fromCurrency} в ${data.targetCurrency} выполнена!`));
 
-// Требуется проверка... 
 moneyManager.sendMoneyCallback = data => 
-    ApiConnector.transferMoney({to: data.to, currency: data.currency, amount: data.amount}, response => 
-    moneyManagerChecker(response, 'Перевод успешно выполнен!'));
+    ApiConnector.transferMoney({to: data.to, currency: data.currency, amount: data.amount}, response =>
+        updateMoneyManager(response, `Перевод ${data.amount} ${data.currency} пользователю с ID ${data.to} выполнен!`));
 
 const favoritesWidget = new FavoritesWidget();
 
-function updateUsersTable(response) {
-    if(response.success) {
-        favoritesWidget.clearTable();
-        favoritesWidget.fillTable(response.data);
-        moneyManager.updateUsersList(response.data);
+ApiConnector.getFavorites(data => {
+    if(data.success) {
+        updateUsersTable(data);
     }
+});
+
+function updateUsersTable(data) {
+    favoritesWidget.clearTable();
+    favoritesWidget.fillTable(data.data);
+    moneyManager.updateUsersList(data.data);
 } 
 
-function setMsg(data, message) {
+function changeFavorites(data, message) {
     if(data.success) {
-        moneyManager.setMessage(true, message);
         updateUsersTable(data);
     } else {
-        moneyManager.setMessage(false, data.error);
+        message = data.error;
     }
-
+    moneyManager.setMessage(data.success, message);
 }
 
-ApiConnector.getFavorites(data => updateUsersTable(data));
 favoritesWidget.addUserCallback = data =>
-    ApiConnector.addUserToFavorites({id: data.id, name: data.name}, response => setMsg(response, `Пользователь с ID ${data.id} добавлен`));
-favoritesWidget.removeUserCallback = data =>
-    ApiConnector.removeUserFromFavorites(data, response => setMsg(response, `Пользователь с ID ${data} удалён`));
+    ApiConnector.addUserToFavorites({id: data.id, name: data.name}, response => 
+        changeFavorites(response, `Пользователь с ID ${data.id} добавлен`));
+
+favoritesWidget.removeUserCallback = id =>
+    ApiConnector.removeUserFromFavorites(id, response => 
+        changeFavorites(response, `Пользователь с ID ${id} удалён`));
