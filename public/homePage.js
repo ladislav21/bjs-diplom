@@ -50,3 +50,29 @@ moneyManager.conversionMoneyCallback = data =>
 moneyManager.sendMoneyCallback = data => 
     ApiConnector.transferMoney({to: data.to, currency: data.currency, amount: data.amount}, response => 
     moneyManagerChecker(response, 'Перевод успешно выполнен!'));
+
+const favoritesWidget = new FavoritesWidget();
+
+function updateUsersTable(response) {
+    if(response.success) {
+        favoritesWidget.clearTable();
+        favoritesWidget.fillTable(response.data);
+        moneyManager.updateUsersList(response.data);
+    }
+} 
+
+function setMsg(data, message) {
+    if(data.success) {
+        moneyManager.setMessage(true, message);
+        updateUsersTable(data);
+    } else {
+        moneyManager.setMessage(false, data.error);
+    }
+
+}
+
+ApiConnector.getFavorites(data => updateUsersTable(data));
+favoritesWidget.addUserCallback = data =>
+    ApiConnector.addUserToFavorites({id: data.id, name: data.name}, response => setMsg(response, `Пользователь с ID ${data.id} добавлен`));
+favoritesWidget.removeUserCallback = data =>
+    ApiConnector.removeUserFromFavorites(data, response => setMsg(response, `Пользователь с ID ${data} удалён`));
